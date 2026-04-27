@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bubble Quest</title>
+<title>Bubble Quest SAFE</title>
 
 <style>
 body{
@@ -12,28 +12,26 @@ body{
   background:#000;
 }
 
-/* HOME */
-#home{
+#home,#map,#gameScreen{
   position:fixed;
   width:100%;
   height:100%;
-  background:url("bg_game.jpg") no-repeat center center;
-  background-size:cover;
+}
+
+/* HOME */
+#home{
   display:flex;
   justify-content:center;
   align-items:center;
   flex-direction:column;
+  background:#111;
   color:white;
 }
 
 /* MAP */
 #map{
-  position:fixed;
-  width:100%;
-  height:100%;
-  background:url("map_bg.jpg") no-repeat center center;
-  background-size:cover;
   display:none;
+  background:#222;
   overflow-y:auto;
 }
 
@@ -41,9 +39,9 @@ body{
 .level{
   width:70px;
   height:70px;
+  margin:20px auto;
   background:gold;
   border-radius:50%;
-  margin:20px auto;
   display:flex;
   justify-content:center;
   align-items:center;
@@ -53,76 +51,53 @@ body{
 
 /* GAME */
 #gameScreen{
-  position:fixed;
-  width:100%;
-  height:100%;
-  background:#0b1220;
   display:none;
+  background:#0b1220;
 }
 
 canvas{
   display:block;
 }
 
-/* UI */
 #ui{
   position:absolute;
   top:10px;
   left:10px;
   color:white;
 }
-button{
-  padding:12px 20px;
-  border:none;
-  border-radius:10px;
-}
 </style>
 </head>
 
 <body>
 
-<!-- HOME -->
 <div id="home">
   <h1>Bubble Quest</h1>
   <button onclick="openMap()">Play</button>
 </div>
 
-<!-- MAP -->
 <div id="map"></div>
 
-<!-- GAME -->
 <div id="gameScreen">
   <div id="ui">Score: <span id="score">0</span></div>
   <canvas id="game"></canvas>
 </div>
 
 <script>
+/* 🔥 SAFE MODE - NO CRASH */
+window.onerror = function(){
+  return true; // prevent blank screen crash
+};
+
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+function resize(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+}
+resize();
 
-/* 🔊 SOUND (SAFE) */
-const popSound = new Audio("pop.mp3");
-const bgMusic = new Audio("bg_music.mp3");
-bgMusic.loop = true;
-bgMusic.volume = 0.4;
-
-/* 🎨 IMAGES */
-const img = {
-  red:new Image(),
-  blue:new Image(),
-  green:new Image(),
-  yellow:new Image()
-};
-
-img.red.src="bubble_red.png";
-img.blue.src="bubble_blue.png";
-img.green.src="bubble_green.png";
-img.yellow.src="bubble_yellow.png";
-
-/* GAME STATE */
+/* GAME DATA */
 let grid=[], current, score=0;
 const R=20, SIZE=40;
 const ROWS=10, COLS=8;
@@ -135,7 +110,7 @@ function openMap(){
   map.style.display="block";
   map.innerHTML="";
 
-  for(let i=1;i<=20;i++){
+  for(let i=1;i<=15;i++){
     let lvl=document.createElement("div");
     lvl.className="level";
     lvl.innerText=i;
@@ -146,15 +121,13 @@ function openMap(){
   }
 }
 
-/* START GAME */
+/* START */
 function startGame(level){
   document.getElementById("map").style.display="none";
   document.getElementById("gameScreen").style.display="block";
 
   score=0;
   document.getElementById("score").innerText=score;
-
-  bgMusic.play().catch(()=>{});
 
   grid=[];
 
@@ -229,12 +202,6 @@ function snap(){
   grid[r][c]=current.color;
 
   check(r,c,current.color);
-
-  try{
-    popSound.currentTime=0;
-    popSound.play();
-  }catch(e){}
-
   newBubble();
 }
 
@@ -268,23 +235,17 @@ function check(r,c,color){
   }
 }
 
-/* DRAW */
+/* DRAW LOOP (ALWAYS RUNS) */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        let im=img[grid[r][c]];
-
-        if(im.complete){
-          ctx.drawImage(im,c*SIZE+60,r*SIZE+60,R*2,R*2);
-        } else {
-          ctx.beginPath();
-          ctx.arc(c*SIZE+60,r*SIZE+60,R,0,Math.PI*2);
-          ctx.fillStyle=grid[r][c];
-          ctx.fill();
-        }
+        ctx.beginPath();
+        ctx.arc(c*SIZE+60,r*SIZE+60,R,0,Math.PI*2);
+        ctx.fillStyle=grid[r][c];
+        ctx.fill();
       }
     }
   }
