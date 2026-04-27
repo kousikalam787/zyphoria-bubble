@@ -7,44 +7,73 @@
 <style>
 body{
   margin:0;
-  background:#0f172a;
   overflow:hidden;
-  color:white;
   font-family:Arial;
+  background:url("bg_game.jpg") no-repeat center center;
+  background-size:cover;
 }
-canvas{
-  display:block;
-  margin:auto;
-  background:#1e293b;
+
+/* HOME SCREEN */
+#home{
+  position:fixed;
+  width:100%;
+  height:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  background:rgba(0,0,0,0.5);
+  color:white;
 }
+
+#home h1{
+  font-size:40px;
+  margin-bottom:20px;
+}
+
+button{
+  padding:15px 30px;
+  font-size:18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+/* GAME UI */
 #ui{
   position:fixed;
   top:10px;
   left:10px;
+  color:white;
 }
-#msg{
+
+#mute{
   position:fixed;
-  top:40%;
-  width:100%;
-  text-align:center;
-  font-size:30px;
+  top:10px;
+  right:10px;
 }
-button{
-  padding:10px 20px;
-  margin-top:10px;
-  font-size:16px;
+
+canvas{
+  display:none;
 }
 </style>
 </head>
 
 <body>
 
-<div id="ui">
-  <div>Score: <span id="score">0</span></div>
-  <div>Level: <span id="level">1</span></div>
+<!-- HOME SCREEN -->
+<div id="home">
+  <h1>Zyphoria Bubble</h1>
+  <button onclick="startGame()">Play</button>
 </div>
 
-<div id="msg"></div>
+<!-- UI -->
+<div id="ui">
+  Score: <span id="score">0</span><br>
+  Level: <span id="level">1</span>
+</div>
+
+<button id="mute" onclick="toggleMusic()">🔊</button>
 
 <canvas id="game"></canvas>
 
@@ -55,80 +84,97 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const R = 18;
-const SIZE = R*2;
-const ROWS = 12;
-const COLS = 10;
+let score=0, level=1, gameStarted=false;
 
-let grid, current, shooter;
-let score = 0;
-let level = 1;
-let gameOver = false;
+const bgMusic = new Audio("bg_music.mp3");
+bgMusic.loop = true;
 
-let colors = ["red","blue","green","yellow"];
+function startGame(){
+  document.getElementById("home").style.display="none";
+  canvas.style.display="block";
+  gameStarted=true;
+  bgMusic.play();
+}
+
+function toggleMusic(){
+  if(bgMusic.paused){
+    bgMusic.play();
+  }else{
+    bgMusic.pause();
+  }
+}
+
+/* ==== BUBBLE IMAGES ==== */
+const bubbleImages = {
+  red:new Image(),
+  blue:new Image(),
+  green:new Image(),
+  yellow:new Image()
+};
+
+bubbleImages.red.src="bubble_red.png";
+bubbleImages.blue.src="bubble_blue.png";
+bubbleImages.green.src="bubble_green.png";
+bubbleImages.yellow.src="bubble_yellow.png";
+
+/* ==== POP SOUND ==== */
+const popSound = new Audio("pop.mp3");
+
+/* ==== GAME LOGIC ==== */
+const R=18, SIZE=R*2, ROWS=10, COLS=10;
+let grid=[], current, shooter={x:canvas.width/2,y:canvas.height-60};
+let colors=["red","blue","green","yellow"];
 
 function init(){
-  grid = [];
-  shooter = { x: canvas.width/2, y: canvas.height-60 };
-
+  grid=[];
   for(let r=0;r<ROWS;r++){
-    grid[r] = [];
+    grid[r]=[];
     for(let c=0;c<COLS;c++){
-      if(r < 5 + Math.floor(level/2)){
-        grid[r][c] = colors[Math.floor(Math.random()*colors.length)];
-      } else {
-        grid[r][c] = null;
-      }
+      grid[r][c]=(r<5)?colors[Math.floor(Math.random()*4)]:null;
     }
   }
-
   newBubble();
-  updateUI();
-  document.getElementById("msg").innerHTML = "";
-  gameOver = false;
 }
 
 function newBubble(){
-  current = {
-    x: shooter.x,
-    y: shooter.y,
-    dx:0, dy:0,
-    color: colors[Math.floor(Math.random()*colors.length)],
+  current={
+    x:shooter.x,
+    y:shooter.y,
+    dx:0,dy:0,
+    color:colors[Math.floor(Math.random()*4)],
     moving:false
   };
 }
 
-canvas.addEventListener("click", e=>{
-  if(gameOver || current.moving) return;
-
-  let angle = Math.atan2(e.clientY - shooter.y, e.clientX - shooter.x);
-  current.dx = Math.cos(angle)*6;
-  current.dy = Math.sin(angle)*6;
-  current.moving = true;
+canvas.addEventListener("click",e=>{
+  if(!gameStarted || current.moving) return;
+  let angle=Math.atan2(e.clientY-shooter.y,e.clientX-shooter.x);
+  current.dx=Math.cos(angle)*6;
+  current.dy=Math.sin(angle)*6;
+  current.moving=true;
 });
 
 function update(){
-  if(!current.moving || gameOver) return;
+  if(!current.moving) return;
 
-  current.x += current.dx;
-  current.y += current.dy;
+  current.x+=current.dx;
+  current.y+=current.dy;
 
-  if(current.x < R || current.x > canvas.width-R){
-    current.dx *= -1;
+  if(current.x<R||current.x>canvas.width-R){
+    current.dx*=-1;
   }
 
-  if(current.y < R){
+  if(current.y<R){
     snap();
   }
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        let x = c*SIZE+50;
-        let y = r*SIZE+50;
-        if(Math.hypot(x-current.x,y-current.y) < SIZE-2){
-          snap();
-          return;
+        let x=c*SIZE+50;
+        let y=r*SIZE+50;
+        if(Math.hypot(x-current.x,y-current.y)<SIZE-2){
+          snap(); return;
         }
       }
     }
@@ -136,20 +182,18 @@ function update(){
 }
 
 function snap(){
-  current.moving = false;
+  current.moving=false;
 
-  let c = Math.floor((current.x-50)/SIZE);
-  let r = Math.floor((current.y-50)/SIZE);
+  let c=Math.floor((current.x-50)/SIZE);
+  let r=Math.floor((current.y-50)/SIZE);
 
   if(r<0) r=0;
   if(c<0) c=0;
   if(c>=COLS) c=COLS-1;
 
-  grid[r][c] = current.color;
+  grid[r][c]=current.color;
 
   checkMatch(r,c,current.color);
-  checkWinLose();
-
   newBubble();
 }
 
@@ -159,82 +203,51 @@ function neighbors(r,c){
 
 function flood(r,c,color,vis){
   if(r<0||c<0||r>=ROWS||c>=COLS) return [];
-  if(vis[r][c]) return [];
-  if(grid[r][c]!==color) return [];
+  if(vis[r][c]||grid[r][c]!==color) return [];
 
   vis[r][c]=true;
   let res=[[r,c]];
 
   neighbors(r,c).forEach(n=>{
-    res = res.concat(flood(n[0],n[1],color,vis));
+    res=res.concat(flood(n[0],n[1],color,vis));
   });
 
   return res;
 }
 
 function checkMatch(r,c,color){
-  let vis = Array.from({length:ROWS},()=>Array(COLS).fill(false));
-  let cluster = flood(r,c,color,vis);
+  let vis=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  let cluster=flood(r,c,color,vis);
 
   if(cluster.length>=3){
+    popSound.currentTime=0;
+    popSound.play();
+
     cluster.forEach(cell=>{
-      grid[cell[0]][cell[1]] = null;
-      score += 10;
+      grid[cell[0]][cell[1]]=null;
+      score+=10;
     });
-    updateUI();
+
+    document.getElementById("score").innerText=score;
   }
-}
-
-function checkWinLose(){
-  // lose
-  for(let c=0;c<COLS;c++){
-    if(grid[ROWS-1][c]){
-      showMessage("Game Over");
-      gameOver = true;
-    }
-  }
-
-  // win
-  let empty = true;
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      if(grid[r][c]) empty = false;
-    }
-  }
-
-  if(empty){
-    level++;
-    score += 50;
-    updateUI();
-    showMessage("Level Up!");
-    setTimeout(init,1500);
-  }
-}
-
-function showMessage(txt){
-  document.getElementById("msg").innerHTML =
-    txt + "<br><button onclick='init()'>Restart</button>";
-}
-
-function updateUI(){
-  document.getElementById("score").innerText = score;
-  document.getElementById("level").innerText = level;
 }
 
 function drawBubble(x,y,color){
-  ctx.beginPath();
-  ctx.arc(x,y,R,0,Math.PI*2);
-  ctx.fillStyle = color;
-  ctx.fill();
+  let img=bubbleImages[color];
+  if(img.complete){
+    ctx.drawImage(img,x-R,y-R,R*2,R*2);
+  }
 }
 
 function draw(){
+  if(!gameStarted) return;
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        drawBubble(c*SIZE+50, r*SIZE+50, grid[r][c]);
+        drawBubble(c*SIZE+50,r*SIZE+50,grid[r][c]);
       }
     }
   }
@@ -245,7 +258,7 @@ function draw(){
 }
 
 function loop(){
-  update();
+  if(gameStarted) update();
   requestAnimationFrame(loop);
 }
 
