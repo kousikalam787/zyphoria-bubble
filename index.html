@@ -9,16 +9,43 @@ body{
   margin:0;
   background:#0f172a;
   overflow:hidden;
+  color:white;
+  font-family:Arial;
 }
 canvas{
   display:block;
   margin:auto;
   background:#1e293b;
 }
+#ui{
+  position:fixed;
+  top:10px;
+  left:10px;
+}
+#msg{
+  position:fixed;
+  top:40%;
+  width:100%;
+  text-align:center;
+  font-size:30px;
+}
+button{
+  padding:10px 20px;
+  margin-top:10px;
+  font-size:16px;
+}
 </style>
 </head>
 
 <body>
+
+<div id="ui">
+  <div>Score: <span id="score">0</span></div>
+  <div>Level: <span id="level">1</span></div>
+</div>
+
+<div id="msg"></div>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -29,42 +56,51 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 const R = 18;
-const ROWS = 10;
+const SIZE = R*2;
+const ROWS = 12;
 const COLS = 10;
-const SIZE = R * 2;
 
-let grid = [];
-let shooter = { x: canvas.width/2, y: canvas.height-60 };
-let current = null;
+let grid, current, shooter;
+let score = 0;
+let level = 1;
+let gameOver = false;
+
 let colors = ["red","blue","green","yellow"];
 
-function initGrid(){
+function init(){
   grid = [];
+  shooter = { x: canvas.width/2, y: canvas.height-60 };
+
   for(let r=0;r<ROWS;r++){
     grid[r] = [];
     for(let c=0;c<COLS;c++){
-      if(r < 5){
+      if(r < 5 + Math.floor(level/2)){
         grid[r][c] = colors[Math.floor(Math.random()*colors.length)];
       } else {
         grid[r][c] = null;
       }
     }
   }
+
+  newBubble();
+  updateUI();
+  document.getElementById("msg").innerHTML = "";
+  gameOver = false;
 }
 
 function newBubble(){
   current = {
     x: shooter.x,
     y: shooter.y,
-    dx: 0,
-    dy: 0,
+    dx:0, dy:0,
     color: colors[Math.floor(Math.random()*colors.length)],
     moving:false
   };
 }
 
 canvas.addEventListener("click", e=>{
-  if(current.moving) return;
+  if(gameOver || current.moving) return;
+
   let angle = Math.atan2(e.clientY - shooter.y, e.clientX - shooter.x);
   current.dx = Math.cos(angle)*6;
   current.dy = Math.sin(angle)*6;
@@ -72,7 +108,7 @@ canvas.addEventListener("click", e=>{
 });
 
 function update(){
-  if(!current.moving) return;
+  if(!current.moving || gameOver) return;
 
   current.x += current.dx;
   current.y += current.dy;
@@ -82,18 +118,16 @@ function update(){
   }
 
   if(current.y < R){
-    snapToGrid();
+    snap();
   }
 
-  // collision check
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        let x = c*SIZE + 50;
-        let y = r*SIZE + 50;
-        let d = Math.hypot(x-current.x,y-current.y);
-        if(d < SIZE-2){
-          snapToGrid();
+        let x = c*SIZE+50;
+        let y = r*SIZE+50;
+        if(Math.hypot(x-current.x,y-current.y) < SIZE-2){
+          snap();
           return;
         }
       }
@@ -101,54 +135,90 @@ function update(){
   }
 }
 
-function snapToGrid(){
+function snap(){
   current.moving = false;
 
   let c = Math.floor((current.x-50)/SIZE);
   let r = Math.floor((current.y-50)/SIZE);
 
-  if(r < 0) r = 0;
-  if(c < 0) c = 0;
-  if(c >= COLS) c = COLS-1;
+  if(r<0) r=0;
+  if(c<0) c=0;
+  if(c>=COLS) c=COLS-1;
 
   grid[r][c] = current.color;
 
   checkMatch(r,c,current.color);
+  checkWinLose();
+
   newBubble();
 }
 
-function getNeighbors(r,c){
-  return [
-    [r-1,c],[r+1,c],
-    [r,c-1],[r,c+1]
-  ];
+function neighbors(r,c){
+  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
 }
 
-function floodFill(r,c,color,visited){
+function flood(r,c,color,vis){
   if(r<0||c<0||r>=ROWS||c>=COLS) return [];
-  if(visited[r][c]) return [];
-  if(grid[r][c] !== color) return [];
+  if(vis[r][c]) return [];
+  if(grid[r][c]!==color) return [];
 
-  visited[r][c] = true;
+  vis[r][c]=true;
+  let res=[[r,c]];
 
-  let result = [[r,c]];
-
-  getNeighbors(r,c).forEach(n=>{
-    result = result.concat(floodFill(n[0],n[1],color,visited));
+  neighbors(r,c).forEach(n=>{
+    res = res.concat(flood(n[0],n[1],color,vis));
   });
 
-  return result;
+  return res;
 }
 
 function checkMatch(r,c,color){
-  let visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
-  let cluster = floodFill(r,c,color,visited);
+  let vis = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  let cluster = flood(r,c,color,vis);
 
-  if(cluster.length >= 3){
+  if(cluster.length>=3){
     cluster.forEach(cell=>{
       grid[cell[0]][cell[1]] = null;
+      score += 10;
     });
+    updateUI();
   }
+}
+
+function checkWinLose(){
+  // lose
+  for(let c=0;c<COLS;c++){
+    if(grid[ROWS-1][c]){
+      showMessage("Game Over");
+      gameOver = true;
+    }
+  }
+
+  // win
+  let empty = true;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(grid[r][c]) empty = false;
+    }
+  }
+
+  if(empty){
+    level++;
+    score += 50;
+    updateUI();
+    showMessage("Level Up!");
+    setTimeout(init,1500);
+  }
+}
+
+function showMessage(txt){
+  document.getElementById("msg").innerHTML =
+    txt + "<br><button onclick='init()'>Restart</button>";
+}
+
+function updateUI(){
+  document.getElementById("score").innerText = score;
+  document.getElementById("level").innerText = level;
 }
 
 function drawBubble(x,y,color){
@@ -179,8 +249,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-initGrid();
-newBubble();
+init();
 draw();
 loop();
 </script>
