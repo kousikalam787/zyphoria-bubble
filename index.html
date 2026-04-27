@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble Shooter</title>
+
+<style>
+body{
+  margin:0;
+  background:#0f172a;
+  overflow:hidden;
+}
+canvas{
+  display:block;
+  margin:auto;
+  background:#1e293b;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const RADIUS = 18;
+const ROWS = 8;
+const COLS = 8;
+
+let bubbles = [];
+let shooter = { x: canvas.width/2, y: canvas.height-60 };
+let currentBubble = null;
+let colors = ["red","blue","green","yellow"];
+
+function createGrid(){
+  bubbles = [];
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      bubbles.push({
+        x:c*40+50,
+        y:r*40+50,
+        color:colors[Math.floor(Math.random()*colors.length)],
+        alive:true
+      });
+    }
+  }
+}
+
+function newBubble(){
+  currentBubble = {
+    x: shooter.x,
+    y: shooter.y,
+    dx: 0,
+    dy: 0,
+    color: colors[Math.floor(Math.random()*colors.length)],
+    moving:false
+  };
+}
+
+canvas.addEventListener("click", (e)=>{
+  if(currentBubble.moving) return;
+
+  let angle = Math.atan2(e.clientY - shooter.y, e.clientX - shooter.x);
+  currentBubble.dx = Math.cos(angle)*6;
+  currentBubble.dy = Math.sin(angle)*6;
+  currentBubble.moving = true;
+});
+
+function update(){
+  if(currentBubble.moving){
+    currentBubble.x += currentBubble.dx;
+    currentBubble.y += currentBubble.dy;
+
+    // wall bounce
+    if(currentBubble.x < RADIUS || currentBubble.x > canvas.width - RADIUS){
+      currentBubble.dx *= -1;
+    }
+
+    // collision with top
+    if(currentBubble.y < RADIUS){
+      snapBubble();
+    }
+
+    // collision with bubbles
+    bubbles.forEach(b=>{
+      if(b.alive){
+        let dist = Math.hypot(b.x-currentBubble.x, b.y-currentBubble.y);
+        if(dist < RADIUS*2){
+          snapBubble();
+        }
+      }
+    });
+  }
+}
+
+function snapBubble(){
+  currentBubble.moving = false;
+
+  bubbles.push({
+    x: currentBubble.x,
+    y: currentBubble.y,
+    color: currentBubble.color,
+    alive:true
+  });
+
+  checkMatch();
+  newBubble();
+}
+
+function checkMatch(){
+  // simple remove same color nearby
+  bubbles.forEach(b=>{
+    if(b.color === currentBubble.color){
+      let dist = Math.hypot(b.x-currentBubble.x, b.y-currentBubble.y);
+      if(dist < 50){
+        b.alive = false;
+      }
+    }
+  });
+}
+
+function drawBubble(x,y,color){
+  ctx.beginPath();
+  ctx.arc(x,y,RADIUS,0,Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  bubbles.forEach(b=>{
+    if(b.alive){
+      drawBubble(b.x,b.y,b.color);
+    }
+  });
+
+  drawBubble(currentBubble.x,currentBubble.y,currentBubble.color);
+
+  requestAnimationFrame(draw);
+}
+
+function gameLoop(){
+  update();
+  requestAnimationFrame(gameLoop);
+}
+
+createGrid();
+newBubble();
+draw();
+gameLoop();
+</script>
+
+</body>
+</html>
