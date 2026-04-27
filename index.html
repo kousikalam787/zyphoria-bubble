@@ -9,7 +9,13 @@ body{
   margin:0;
   overflow:hidden;
   font-family:Arial;
-  background:#000;
+}
+
+/* COMMON BG FIX */
+.bg{
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
 }
 
 /* HOME */
@@ -17,8 +23,10 @@ body{
   position:fixed;
   width:100%;
   height:100%;
-  background:url("bg_game.jpg") no-repeat center center;
-  background-size:cover;
+  background:url("bg_game.jpg");
+}
+#home.bg{background-size:cover;}
+#home{
   display:flex;
   justify-content:center;
   align-items:center;
@@ -26,117 +34,144 @@ body{
   color:white;
 }
 
-button{
-  padding:15px 30px;
-  font-size:18px;
-  border:none;
-  border-radius:10px;
-}
-
 /* MAP */
 #map{
   position:fixed;
   width:100%;
   height:100%;
-  background:#111;
+  background:url("map_bg.jpg");
+}
+#map.bg{background-size:cover;}
+#map{
   display:none;
-  flex-wrap:wrap;
-  padding:20px;
+  overflow-y:scroll;
 }
 
+/* LEVEL BUTTON */
 .level{
-  width:60px;
-  height:60px;
-  margin:10px;
-  background:#4ade80;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  border-radius:10px;
-  color:black;
+  width:70px;
+  height:70px;
+  border-radius:50%;
+  background:gold;
+  text-align:center;
+  line-height:70px;
   font-weight:bold;
-  cursor:pointer;
+  position:absolute;
 }
 
 /* GAME */
+#gameScreen{
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:url("bg_game.jpg");
+}
+#gameScreen.bg{background-size:cover;}
+#gameScreen{display:none;}
+
 canvas{
-  display:none;
-  background:url("bg_game.jpg") no-repeat center center;
-  background-size:cover;
+  display:block;
 }
 
 /* UI */
 #ui{
-  position:fixed;
+  position:absolute;
   top:10px;
   left:10px;
   color:white;
+  font-size:18px;
+}
+
+button{
+  padding:15px 25px;
+  font-size:18px;
+  border:none;
+  border-radius:10px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="home">
+<!-- HOME -->
+<div id="home" class="bg">
   <h1>Zyphoria Bubble</h1>
   <button onclick="openMap()">Play</button>
 </div>
 
-<div id="map"></div>
+<!-- MAP -->
+<div id="map" class="bg"></div>
 
-<div id="ui">
-  Score: <span id="score">0</span>
+<!-- GAME -->
+<div id="gameScreen" class="bg">
+  <div id="ui">Score: <span id="score">0</span></div>
+  <canvas id="game"></canvas>
 </div>
-
-<canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+/* RESPONSIVE CANVAS */
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.onresize = resize;
+resize();
 
-/* ==== IMAGES (NO WAIT) ==== */
-const images = {
+/* ==== IMAGE LOAD ==== */
+const img = {
   red:new Image(),
   blue:new Image(),
   green:new Image(),
   yellow:new Image()
 };
 
-images.red.src="bubble_red.png";
-images.blue.src="bubble_blue.png";
-images.green.src="bubble_green.png";
-images.yellow.src="bubble_yellow.png";
-
-const popSound = new Audio("pop.mp3");
+img.red.src="bubble_red.png";
+img.blue.src="bubble_blue.png";
+img.green.src="bubble_green.png";
+img.yellow.src="bubble_yellow.png";
 
 /* ==== MAP ==== */
 function openMap(){
-  document.getElementById("home").style.display="none";
-  let map = document.getElementById("map");
-  map.style.display="flex";
+  home.style.display="none";
+  map.style.display="block";
   map.innerHTML="";
+
+  let y=100;
 
   for(let i=1;i<=20;i++){
     let lvl=document.createElement("div");
     lvl.className="level";
     lvl.innerText=i;
+
+    let x=(i%2==0)?80:window.innerWidth-150;
+
+    lvl.style.left=x+"px";
+    lvl.style.top=y+"px";
+
     lvl.onclick=()=>startGame(i);
+
     map.appendChild(lvl);
+
+    y+=130;
   }
 }
 
 /* ==== GAME ==== */
 let grid=[], current, score=0;
-const R=18, SIZE=R*2, ROWS=10, COLS=10;
+const R=22; // bigger bubble
+const SIZE=R*2;
+const ROWS=10, COLS=8;
 let colors=["red","blue","green","yellow"];
 
 function startGame(level){
-  document.getElementById("map").style.display="none";
-  canvas.style.display="block";
+  map.style.display="none";
+  gameScreen.style.display="block";
+
   score=0;
+  scoreEl.innerText=score;
 
   grid=[];
   for(let r=0;r<ROWS;r++){
@@ -153,20 +188,25 @@ function startGame(level){
 function newBubble(){
   current={
     x:canvas.width/2,
-    y:canvas.height-60,
+    y:canvas.height-80,
     dx:0,dy:0,
     color:colors[Math.floor(Math.random()*4)],
     moving:false
   };
 }
 
-canvas.addEventListener("click",e=>{
+canvas.onclick=(e)=>{
   if(!current || current.moving) return;
-  let angle=Math.atan2(e.clientY-current.y,e.clientX-current.x);
-  current.dx=Math.cos(angle)*6;
-  current.dy=Math.sin(angle)*6;
+
+  let rect=canvas.getBoundingClientRect();
+  let x=e.clientX-rect.left;
+  let y=e.clientY-rect.top;
+
+  let angle=Math.atan2(y-current.y,x-current.x);
+  current.dx=Math.cos(angle)*7;
+  current.dy=Math.sin(angle)*7;
   current.moving=true;
-});
+};
 
 function update(){
   if(!current || !current.moving) return;
@@ -185,8 +225,8 @@ function update(){
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        let x=c*SIZE+50;
-        let y=r*SIZE+50;
+        let x=c*SIZE+60;
+        let y=r*SIZE+60;
         if(Math.hypot(x-current.x,y-current.y)<SIZE-2){
           snap(); return;
         }
@@ -198,8 +238,8 @@ function update(){
 function snap(){
   current.moving=false;
 
-  let c=Math.floor((current.x-50)/SIZE);
-  let r=Math.floor((current.y-50)/SIZE);
+  let c=Math.floor((current.x-60)/SIZE);
+  let r=Math.floor((current.y-60)/SIZE);
 
   if(r<0) r=0;
   if(c<0) c=0;
@@ -234,27 +274,22 @@ function checkMatch(r,c,color){
   let cluster=flood(r,c,color,vis);
 
   if(cluster.length>=3){
-    try{
-      popSound.currentTime=0;
-      popSound.play();
-    }catch(e){}
-
     cluster.forEach(cell=>{
       grid[cell[0]][cell[1]]=null;
       score+=10;
     });
 
-    document.getElementById("score").innerText=score;
+    scoreEl.innerText=score;
   }
 }
 
+/* 🎯 PERFECT IMAGE DRAW */
 function drawBubble(x,y,color){
-  let img=images[color];
+  let image=img[color];
 
-  if(img && img.complete){
-    ctx.drawImage(img,x-R,y-R,R*2,R*2);
+  if(image.complete){
+    ctx.drawImage(image, x-R, y-R, R*2, R*2);
   } else {
-    // fallback circle
     ctx.beginPath();
     ctx.arc(x,y,R,0,Math.PI*2);
     ctx.fillStyle=color;
@@ -268,7 +303,7 @@ function draw(){
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        drawBubble(c*SIZE+50,r*SIZE+50,grid[r][c]);
+        drawBubble(c*SIZE+60,r*SIZE+60,grid[r][c]);
       }
     }
   }
