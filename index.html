@@ -2,31 +2,21 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zyphoria Bubble</title>
+<title>Bubble Game</title>
 
 <style>
 body{
   margin:0;
-  overflow:hidden;
   font-family:Arial;
+  overflow:hidden;
+  background:#000;
 }
 
-/* COMMON BG FIX */
-.bg{
-  background-size:cover;
-  background-position:center;
-  background-repeat:no-repeat;
-}
-
-/* HOME */
 #home{
   position:fixed;
   width:100%;
   height:100%;
-  background:url("bg_game.jpg");
-}
-#home.bg{background-size:cover;}
-#home{
+  background:#111;
   display:flex;
   justify-content:center;
   align-items:center;
@@ -34,119 +24,102 @@ body{
   color:white;
 }
 
-/* MAP */
 #map{
   position:fixed;
   width:100%;
   height:100%;
-  background:url("map_bg.jpg");
-}
-#map.bg{background-size:cover;}
-#map{
+  background:#222;
   display:none;
-  overflow-y:scroll;
 }
 
-/* LEVEL BUTTON */
 .level{
-  width:70px;
-  height:70px;
-  border-radius:50%;
+  width:60px;
+  height:60px;
   background:gold;
-  text-align:center;
-  line-height:70px;
-  font-weight:bold;
+  border-radius:50%;
   position:absolute;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-weight:bold;
+  cursor:pointer;
 }
 
-/* GAME */
 #gameScreen{
   position:fixed;
   width:100%;
   height:100%;
-  background:url("bg_game.jpg");
+  background:#0b1220;
+  display:none;
 }
-#gameScreen.bg{background-size:cover;}
-#gameScreen{display:none;}
 
 canvas{
   display:block;
 }
 
-/* UI */
 #ui{
   position:absolute;
   top:10px;
   left:10px;
   color:white;
-  font-size:18px;
 }
 
 button{
-  padding:15px 25px;
-  font-size:18px;
-  border:none;
-  border-radius:10px;
+  padding:12px 20px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- HOME -->
-<div id="home" class="bg">
-  <h1>Zyphoria Bubble</h1>
+<div id="home">
+  <h1>Bubble Game</h1>
   <button onclick="openMap()">Play</button>
 </div>
 
-<!-- MAP -->
-<div id="map" class="bg"></div>
+<div id="map"></div>
 
-<!-- GAME -->
-<div id="gameScreen" class="bg">
+<div id="gameScreen">
   <div id="ui">Score: <span id="score">0</span></div>
   <canvas id="game"></canvas>
 </div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-/* RESPONSIVE CANVAS */
 function resize(){
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
 }
-window.onresize = resize;
 resize();
 
-/* ==== IMAGE LOAD ==== */
-const img = {
-  red:new Image(),
-  blue:new Image(),
-  green:new Image(),
-  yellow:new Image()
-};
+/* 🔊 SOUND (SAFE) */
+const popSound = new Audio();
+popSound.src = "pop.mp3";
+popSound.volume = 0.7;
 
-img.red.src="bubble_red.png";
-img.blue.src="bubble_blue.png";
-img.green.src="bubble_green.png";
-img.yellow.src="bubble_yellow.png";
+/* GAME DATA */
+let grid=[], current, score=0;
+const R=20, SIZE=R*2;
+const ROWS=8, COLS=8;
+let colors=["red","blue","green","yellow"];
 
-/* ==== MAP ==== */
+/* MAP */
 function openMap(){
-  home.style.display="none";
+  document.getElementById("home").style.display="none";
+  let map=document.getElementById("map");
   map.style.display="block";
   map.innerHTML="";
 
-  let y=100;
+  let y=60;
 
-  for(let i=1;i<=20;i++){
+  for(let i=1;i<=15;i++){
     let lvl=document.createElement("div");
     lvl.className="level";
     lvl.innerText=i;
 
-    let x=(i%2==0)?80:window.innerWidth-150;
+    let x=(i%2==0)?80:window.innerWidth-120;
 
     lvl.style.left=x+"px";
     lvl.style.top=y+"px";
@@ -155,29 +128,24 @@ function openMap(){
 
     map.appendChild(lvl);
 
-    y+=130;
+    y+=120;
   }
 }
 
-/* ==== GAME ==== */
-let grid=[], current, score=0;
-const R=22; // bigger bubble
-const SIZE=R*2;
-const ROWS=10, COLS=8;
-let colors=["red","blue","green","yellow"];
-
+/* START */
 function startGame(level){
-  map.style.display="none";
-  gameScreen.style.display="block";
+  document.getElementById("map").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
 
   score=0;
-  scoreEl.innerText=score;
+  document.getElementById("score").innerText=score;
 
   grid=[];
+
   for(let r=0;r<ROWS;r++){
     grid[r]=[];
     for(let c=0;c<COLS;c++){
-      grid[r][c]=(r<3+Math.floor(level/3))?
+      grid[r][c]=(r<2+Math.floor(level/4))?
       colors[Math.floor(Math.random()*4)]:null;
     }
   }
@@ -185,131 +153,131 @@ function startGame(level){
   newBubble();
 }
 
+/* BUBBLE */
 function newBubble(){
   current={
     x:canvas.width/2,
-    y:canvas.height-80,
+    y:canvas.height-60,
     dx:0,dy:0,
     color:colors[Math.floor(Math.random()*4)],
     moving:false
   };
 }
 
+/* SHOOT */
 canvas.onclick=(e)=>{
   if(!current || current.moving) return;
 
-  let rect=canvas.getBoundingClientRect();
-  let x=e.clientX-rect.left;
-  let y=e.clientY-rect.top;
+  let angle=Math.atan2(e.clientY-current.y,e.clientX-current.x);
 
-  let angle=Math.atan2(y-current.y,x-current.x);
-  current.dx=Math.cos(angle)*7;
-  current.dy=Math.sin(angle)*7;
+  current.dx=Math.cos(angle)*6;
+  current.dy=Math.sin(angle)*6;
   current.moving=true;
 };
 
+/* UPDATE */
 function update(){
   if(!current || !current.moving) return;
 
   current.x+=current.dx;
   current.y+=current.dy;
 
-  if(current.x<R||current.x>canvas.width-R){
-    current.dx*=-1;
-  }
+  if(current.x<R||current.x>canvas.width-R) current.dx*=-1;
 
-  if(current.y<R){
-    snap();
-  }
+  if(current.y<R) snap();
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        let x=c*SIZE+60;
-        let y=r*SIZE+60;
-        if(Math.hypot(x-current.x,y-current.y)<SIZE-2){
-          snap(); return;
+        let x=c*SIZE+50;
+        let y=r*SIZE+50;
+
+        if(Math.hypot(x-current.x,y-current.y)<SIZE){
+          snap();
+          return;
         }
       }
     }
   }
 }
 
+/* SNAP */
 function snap(){
   current.moving=false;
 
-  let c=Math.floor((current.x-60)/SIZE);
-  let r=Math.floor((current.y-60)/SIZE);
+  let c=Math.floor(current.x/SIZE);
+  let r=Math.floor(current.y/SIZE);
 
   if(r<0) r=0;
   if(c<0) c=0;
   if(c>=COLS) c=COLS-1;
 
+  if(!grid[r]) grid[r]=[];
+
   grid[r][c]=current.color;
 
-  checkMatch(r,c,current.color);
+  check(r,c,current.color);
+
   newBubble();
 }
 
-function neighbors(r,c){
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
-}
-
-function flood(r,c,color,vis){
-  if(r<0||c<0||r>=ROWS||c>=COLS) return [];
-  if(vis[r][c]||grid[r][c]!==color) return [];
-
-  vis[r][c]=true;
-  let res=[[r,c]];
-
-  neighbors(r,c).forEach(n=>{
-    res=res.concat(flood(n[0],n[1],color,vis));
-  });
-
-  return res;
-}
-
-function checkMatch(r,c,color){
+/* MATCH */
+function check(r,c,color){
   let vis=Array.from({length:ROWS},()=>Array(COLS).fill(false));
-  let cluster=flood(r,c,color,vis);
+
+  function flood(r,c){
+    if(r<0||c<0||r>=ROWS||c>=COLS) return [];
+    if(vis[r][c]||grid[r][c]!==color) return [];
+
+    vis[r][c]=true;
+    let res=[[r,c]];
+
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(d=>{
+      res=res.concat(flood(r+d[0],c+d[1]));
+    });
+
+    return res;
+  }
+
+  let cluster=flood(r,c);
 
   if(cluster.length>=3){
-    cluster.forEach(cell=>{
-      grid[cell[0]][cell[1]]=null;
+
+    /* 🔊 SOUND PLAY */
+    try{
+      popSound.currentTime=0;
+      popSound.play();
+    }catch(e){}
+
+    cluster.forEach(p=>{
+      grid[p[0]][p[1]]=null;
       score+=10;
     });
 
-    scoreEl.innerText=score;
+    document.getElementById("score").innerText=score;
   }
 }
 
-/* 🎯 PERFECT IMAGE DRAW */
-function drawBubble(x,y,color){
-  let image=img[color];
-
-  if(image.complete){
-    ctx.drawImage(image, x-R, y-R, R*2, R*2);
-  } else {
-    ctx.beginPath();
-    ctx.arc(x,y,R,0,Math.PI*2);
-    ctx.fillStyle=color;
-    ctx.fill();
-  }
-}
-
+/* DRAW */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       if(grid[r][c]){
-        drawBubble(c*SIZE+60,r*SIZE+60,grid[r][c]);
+        ctx.beginPath();
+        ctx.arc(c*SIZE+50,r*SIZE+50,R,0,Math.PI*2);
+        ctx.fillStyle=grid[r][c];
+        ctx.fill();
       }
     }
   }
 
   if(current){
-    drawBubble(current.x,current.y,current.color);
+    ctx.beginPath();
+    ctx.arc(current.x,current.y,R,0,Math.PI*2);
+    ctx.fillStyle=current.color;
+    ctx.fill();
   }
 
   requestAnimationFrame(draw);
