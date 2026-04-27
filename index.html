@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bubble Shooter</title>
+<title>Zyphoria Bubble</title>
 
 <style>
 body{
@@ -19,7 +19,6 @@ canvas{
 </head>
 
 <body>
-
 <canvas id="game"></canvas>
 
 <script>
@@ -29,31 +28,32 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const RADIUS = 18;
-const ROWS = 8;
-const COLS = 8;
+const R = 18;
+const ROWS = 10;
+const COLS = 10;
+const SIZE = R * 2;
 
-let bubbles = [];
+let grid = [];
 let shooter = { x: canvas.width/2, y: canvas.height-60 };
-let currentBubble = null;
+let current = null;
 let colors = ["red","blue","green","yellow"];
 
-function createGrid(){
-  bubbles = [];
+function initGrid(){
+  grid = [];
   for(let r=0;r<ROWS;r++){
+    grid[r] = [];
     for(let c=0;c<COLS;c++){
-      bubbles.push({
-        x:c*40+50,
-        y:r*40+50,
-        color:colors[Math.floor(Math.random()*colors.length)],
-        alive:true
-      });
+      if(r < 5){
+        grid[r][c] = colors[Math.floor(Math.random()*colors.length)];
+      } else {
+        grid[r][c] = null;
+      }
     }
   }
 }
 
 function newBubble(){
-  currentBubble = {
+  current = {
     x: shooter.x,
     y: shooter.y,
     dx: 0,
@@ -63,71 +63,97 @@ function newBubble(){
   };
 }
 
-canvas.addEventListener("click", (e)=>{
-  if(currentBubble.moving) return;
-
+canvas.addEventListener("click", e=>{
+  if(current.moving) return;
   let angle = Math.atan2(e.clientY - shooter.y, e.clientX - shooter.x);
-  currentBubble.dx = Math.cos(angle)*6;
-  currentBubble.dy = Math.sin(angle)*6;
-  currentBubble.moving = true;
+  current.dx = Math.cos(angle)*6;
+  current.dy = Math.sin(angle)*6;
+  current.moving = true;
 });
 
 function update(){
-  if(currentBubble.moving){
-    currentBubble.x += currentBubble.dx;
-    currentBubble.y += currentBubble.dy;
+  if(!current.moving) return;
 
-    // wall bounce
-    if(currentBubble.x < RADIUS || currentBubble.x > canvas.width - RADIUS){
-      currentBubble.dx *= -1;
-    }
+  current.x += current.dx;
+  current.y += current.dy;
 
-    // collision with top
-    if(currentBubble.y < RADIUS){
-      snapBubble();
-    }
+  if(current.x < R || current.x > canvas.width-R){
+    current.dx *= -1;
+  }
 
-    // collision with bubbles
-    bubbles.forEach(b=>{
-      if(b.alive){
-        let dist = Math.hypot(b.x-currentBubble.x, b.y-currentBubble.y);
-        if(dist < RADIUS*2){
-          snapBubble();
+  if(current.y < R){
+    snapToGrid();
+  }
+
+  // collision check
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(grid[r][c]){
+        let x = c*SIZE + 50;
+        let y = r*SIZE + 50;
+        let d = Math.hypot(x-current.x,y-current.y);
+        if(d < SIZE-2){
+          snapToGrid();
+          return;
         }
       }
+    }
+  }
+}
+
+function snapToGrid(){
+  current.moving = false;
+
+  let c = Math.floor((current.x-50)/SIZE);
+  let r = Math.floor((current.y-50)/SIZE);
+
+  if(r < 0) r = 0;
+  if(c < 0) c = 0;
+  if(c >= COLS) c = COLS-1;
+
+  grid[r][c] = current.color;
+
+  checkMatch(r,c,current.color);
+  newBubble();
+}
+
+function getNeighbors(r,c){
+  return [
+    [r-1,c],[r+1,c],
+    [r,c-1],[r,c+1]
+  ];
+}
+
+function floodFill(r,c,color,visited){
+  if(r<0||c<0||r>=ROWS||c>=COLS) return [];
+  if(visited[r][c]) return [];
+  if(grid[r][c] !== color) return [];
+
+  visited[r][c] = true;
+
+  let result = [[r,c]];
+
+  getNeighbors(r,c).forEach(n=>{
+    result = result.concat(floodFill(n[0],n[1],color,visited));
+  });
+
+  return result;
+}
+
+function checkMatch(r,c,color){
+  let visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  let cluster = floodFill(r,c,color,visited);
+
+  if(cluster.length >= 3){
+    cluster.forEach(cell=>{
+      grid[cell[0]][cell[1]] = null;
     });
   }
 }
 
-function snapBubble(){
-  currentBubble.moving = false;
-
-  bubbles.push({
-    x: currentBubble.x,
-    y: currentBubble.y,
-    color: currentBubble.color,
-    alive:true
-  });
-
-  checkMatch();
-  newBubble();
-}
-
-function checkMatch(){
-  // simple remove same color nearby
-  bubbles.forEach(b=>{
-    if(b.color === currentBubble.color){
-      let dist = Math.hypot(b.x-currentBubble.x, b.y-currentBubble.y);
-      if(dist < 50){
-        b.alive = false;
-      }
-    }
-  });
-}
-
 function drawBubble(x,y,color){
   ctx.beginPath();
-  ctx.arc(x,y,RADIUS,0,Math.PI*2);
+  ctx.arc(x,y,R,0,Math.PI*2);
   ctx.fillStyle = color;
   ctx.fill();
 }
@@ -135,26 +161,28 @@ function drawBubble(x,y,color){
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  bubbles.forEach(b=>{
-    if(b.alive){
-      drawBubble(b.x,b.y,b.color);
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(grid[r][c]){
+        drawBubble(c*SIZE+50, r*SIZE+50, grid[r][c]);
+      }
     }
-  });
+  }
 
-  drawBubble(currentBubble.x,currentBubble.y,currentBubble.color);
+  drawBubble(current.x,current.y,current.color);
 
   requestAnimationFrame(draw);
 }
 
-function gameLoop(){
+function loop(){
   update();
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(loop);
 }
 
-createGrid();
+initGrid();
 newBubble();
 draw();
-gameLoop();
+loop();
 </script>
 
 </body>
