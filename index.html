@@ -9,26 +9,33 @@ body{
   margin:0;
   overflow:hidden;
   font-family:Arial;
-  background:url("bg_game.jpg") no-repeat center center;
-  background-size:cover;
 }
 
-/* HOME SCREEN */
+/* LOADING */
+#loading{
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:#000;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:30px;
+}
+
+/* HOME */
 #home{
   position:fixed;
   width:100%;
   height:100%;
-  display:flex;
+  background:url("bg_game.jpg") no-repeat center center;
+  background-size:cover;
+  display:none;
   justify-content:center;
   align-items:center;
   flex-direction:column;
-  background:rgba(0,0,0,0.5);
   color:white;
-}
-
-#home h1{
-  font-size:40px;
-  margin-bottom:20px;
 }
 
 button{
@@ -36,110 +43,148 @@ button{
   font-size:18px;
   border:none;
   border-radius:10px;
+}
+
+/* LEVEL MAP */
+#map{
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:#111;
+  display:none;
+  flex-wrap:wrap;
+  padding:20px;
+}
+
+.level{
+  width:60px;
+  height:60px;
+  margin:10px;
+  background:#4ade80;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  border-radius:10px;
+  color:black;
+  font-weight:bold;
   cursor:pointer;
 }
 
-/* GAME UI */
+/* GAME */
+canvas{
+  display:none;
+  background:url("bg_game.jpg") no-repeat center center;
+  background-size:cover;
+}
+
+/* UI */
 #ui{
   position:fixed;
   top:10px;
   left:10px;
   color:white;
 }
-
-#mute{
-  position:fixed;
-  top:10px;
-  right:10px;
-}
-
-canvas{
-  display:none;
-}
 </style>
 </head>
 
 <body>
 
-<!-- HOME SCREEN -->
+<div id="loading">Loading...</div>
+
 <div id="home">
   <h1>Zyphoria Bubble</h1>
-  <button onclick="startGame()">Play</button>
+  <button onclick="openMap()">Play</button>
 </div>
 
-<!-- UI -->
+<div id="map"></div>
+
 <div id="ui">
-  Score: <span id="score">0</span><br>
-  Level: <span id="level">1</span>
+  Score: <span id="score">0</span>
 </div>
-
-<button id="mute" onclick="toggleMusic()">🔊</button>
 
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let score=0, level=1, gameStarted=false;
-
-const bgMusic = new Audio("bg_music.mp3");
-bgMusic.loop = true;
-
-function startGame(){
-  document.getElementById("home").style.display="none";
-  canvas.style.display="block";
-  gameStarted=true;
-  bgMusic.play();
-}
-
-function toggleMusic(){
-  if(bgMusic.paused){
-    bgMusic.play();
-  }else{
-    bgMusic.pause();
-  }
-}
-
-/* ==== BUBBLE IMAGES ==== */
-const bubbleImages = {
+/* ==== LOAD ASSETS ==== */
+const assets = {
   red:new Image(),
   blue:new Image(),
   green:new Image(),
-  yellow:new Image()
+  yellow:new Image(),
+  bg:new Image()
 };
 
-bubbleImages.red.src="bubble_red.png";
-bubbleImages.blue.src="bubble_blue.png";
-bubbleImages.green.src="bubble_green.png";
-bubbleImages.yellow.src="bubble_yellow.png";
+assets.red.src="bubble_red.png";
+assets.blue.src="bubble_blue.png";
+assets.green.src="bubble_green.png";
+assets.yellow.src="bubble_yellow.png";
+assets.bg.src="bg_game.jpg";
 
-/* ==== POP SOUND ==== */
 const popSound = new Audio("pop.mp3");
 
-/* ==== GAME LOGIC ==== */
+/* ==== WAIT FOR LOAD ==== */
+let loaded = 0;
+let total = 5;
+
+function checkLoad(){
+  loaded++;
+  if(loaded>=total){
+    document.getElementById("loading").style.display="none";
+    document.getElementById("home").style.display="flex";
+  }
+}
+
+Object.values(assets).forEach(img=>{
+  img.onload = checkLoad;
+});
+
+/* ==== LEVEL MAP ==== */
+function openMap(){
+  document.getElementById("home").style.display="none";
+  let map = document.getElementById("map");
+  map.style.display="flex";
+  map.innerHTML="";
+
+  for(let i=1;i<=20;i++){
+    let lvl=document.createElement("div");
+    lvl.className="level";
+    lvl.innerText=i;
+    lvl.onclick=()=>startGame(i);
+    map.appendChild(lvl);
+  }
+}
+
+/* ==== GAME ==== */
+let grid=[], current, score=0;
 const R=18, SIZE=R*2, ROWS=10, COLS=10;
-let grid=[], current, shooter={x:canvas.width/2,y:canvas.height-60};
 let colors=["red","blue","green","yellow"];
 
-function init(){
+function startGame(level){
+  document.getElementById("map").style.display="none";
+  canvas.style.display="block";
+  score=0;
+
   grid=[];
   for(let r=0;r<ROWS;r++){
     grid[r]=[];
     for(let c=0;c<COLS;c++){
-      grid[r][c]=(r<5)?colors[Math.floor(Math.random()*4)]:null;
+      grid[r][c]=(r<3+Math.floor(level/3))?
+      colors[Math.floor(Math.random()*4)]:null;
     }
   }
+
   newBubble();
 }
 
 function newBubble(){
   current={
-    x:shooter.x,
-    y:shooter.y,
+    x:canvas.width/2,
+    y:canvas.height-60,
     dx:0,dy:0,
     color:colors[Math.floor(Math.random()*4)],
     moving:false
@@ -147,8 +192,8 @@ function newBubble(){
 }
 
 canvas.addEventListener("click",e=>{
-  if(!gameStarted || current.moving) return;
-  let angle=Math.atan2(e.clientY-shooter.y,e.clientX-shooter.x);
+  if(current.moving) return;
+  let angle=Math.atan2(e.clientY-current.y,e.clientX-current.x);
   current.dx=Math.cos(angle)*6;
   current.dy=Math.sin(angle)*6;
   current.moving=true;
@@ -233,15 +278,13 @@ function checkMatch(r,c,color){
 }
 
 function drawBubble(x,y,color){
-  let img=bubbleImages[color];
+  let img=assets[color];
   if(img.complete){
     ctx.drawImage(img,x-R,y-R,R*2,R*2);
   }
 }
 
 function draw(){
-  if(!gameStarted) return;
-
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   for(let r=0;r<ROWS;r++){
@@ -252,17 +295,18 @@ function draw(){
     }
   }
 
-  drawBubble(current.x,current.y,current.color);
+  if(current){
+    drawBubble(current.x,current.y,current.color);
+  }
 
   requestAnimationFrame(draw);
 }
 
 function loop(){
-  if(gameStarted) update();
+  update();
   requestAnimationFrame(loop);
 }
 
-init();
 draw();
 loop();
 </script>
